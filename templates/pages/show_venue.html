@@ -1,7 +1,7 @@
 {% extends 'layouts/main.html' %}
 {% block title %}Venue Search{% endblock %}
 {% block content %}
- <div class="row">
+<div class="row">
 	<div class="col-sm-6">
 		<h1 class="monospace">
 			{{ venue.name }}
@@ -69,7 +69,6 @@
 				<img src="{{ show.artist_image_link }}" alt="Show Artist Image" />
 				<h5><a href="/artists/{{ show.artist_id }}">{{ show.artist_name }}</a></h5>
 				<h6>{{ show.start_time|datetime('full') }}</h6>
-				<h1>{{ ven.vns }}</h1>
 			</div>
 		</div>
 		{% endfor %}
@@ -80,6 +79,6 @@
 <script>
   console.log(ven.vns)
 
-</script> 
+</script>
 {% endblock %}
 

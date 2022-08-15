@@ -527,6 +527,7 @@ def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
     oneArtists = db.session.query(Artist).filter(Artist.id==artist_id).all()
+    
     shws =  db.session.query(Shows).join(Artist, Artist.id == Shows.artist_id).filter(Shows.artist_id == artist_id).all()
     ls = []
     upcoming_shows =[]
@@ -641,12 +642,12 @@ def show_artist(artist_id):
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
-  form = ArtistForm()
-  oneArtists = db.session.query(Artist).filter(Artist.id==artist_id).all()
-    
+  #form = ArtistForm()
+  oneArtists = db.session.query(Artist).filter(Artist.id==artist_id)
+  form = ArtistForm( obj = oneArtists.first() )
   ls = []
 
-  for oneArtist in oneArtists:
+  for oneArtist in oneArtists.all():
        artist={
           "id": oneArtist.id,
           "name": oneArtist.name,
@@ -814,7 +815,7 @@ def shows():
   # TODO: replace with real venues data.
   sdb = db.session.query(Shows).join(Artist, Artist.id==Shows.artist_id).all()
   ls =[]
-  for sd in sdb:
+  """  for sd in sdb:
     #print(sd)
     
     ls.append({
@@ -824,6 +825,16 @@ def shows():
     "artist_name":sd.Artist.name,
     "artist_image_link":sd.Artist.image_link,
     "start_time":sd.start_time.strftime("%m/%d/%Y, %H:%M:%S") 
+    }) """
+  data = []
+  for i in Shows.query.all():
+    data.append({
+    "venue_id": i.venue_id,
+    "venue_name": Venue.query.filter_by(id =i.venue_id).first().name,
+    "artist_id": i.artist_id,
+    "artist_name": Artist.query.filter_by(id =i.artist_id).first().name,
+    "artist_image_link": Artist.query.filter_by(id =i.artist_id).first().image_link,
+    "start_time": i.start_time.strftime("%m/%d/%Y, %H:%M:%S")
     })
   """  dct = {
     "venue_id": sd.venue_id,
@@ -870,7 +881,7 @@ def shows():
     "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
     "start_time": "2035-04-15T20:00:00.000Z"
   }]
-  return render_template('pages/shows.html', shows=ls)
+  return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
 def create_shows():

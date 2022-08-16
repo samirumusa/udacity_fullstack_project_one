@@ -8,6 +8,7 @@ from itertools import count
 import json
 from os import stat
 import sys
+sys.path.append('C:\\Users\\MINE\\Desktop\\FSND\\projects\\01_fyyur\\starter_code\\models')
 from tracemalloc import start
 from turtle import onrelease
 import dateutil.parser
@@ -21,76 +22,27 @@ from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
 from flask_migrate import Migrate
+from config import app, db
+from models import show_model , venue_model, artist_model
+
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
-
-app = Flask(__name__)
-moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
+Shows = show_model.Shows
+Venue = venue_model.Venue
+Artist = artist_model.Artist
 # TODO: connect to a local postgresql database
 
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
 
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String(120)))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website_link = db.Column(db.String(200))
-    seeking_talent =  db.Column(db.String(120))
-    seeking_description =  db.Column(db.String(500))
-    shows = db.relationship('Shows', backref='Venue', lazy=True)
-    
-    
-    def __repr__(self):
-      return f'<Todo {self.id} {self.name}, list {self.city}>'
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website_link = db.Column(db.String(200))
-    seeking_venue =  db.Column(db.String(120))
-    seeking_description =  db.Column(db.String(500))
-    shows = db.relationship('Shows', backref='Artist', lazy=True)
-    
-    
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    def __repr__(self):
-      return f'<Artist {self.id} {self.name}{self.facebook_link} {self.phone} {self.state} {self.city} {self.genres} {self.image_link}>'
 
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-class Shows(db.Model):
-    __tablename__ = 'Shows'
-    id = db.Column(db.Integer, primary_key=True)
-    artist_id =  db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
-    venue_id =   db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
-    start_time = db.Column(db.String(250), nullable = False)
-
-    def __repr__(self):
-      return f'<Artist {self.id} {self.artist_id}{self.venue_id} {self.start_time}>'
 
     
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
@@ -138,20 +90,15 @@ def venues():
   # TODO: replace with real venues data.
   #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
   vns = db.session.query(Venue).group_by(Venue.id, Venue.city, Venue.state).all()
-
   ls = []
-  cities = {}
-  cnt = len(vns)
   for i in range(len(vns)):
     r = vns[i]
-    vns1 = db.session.query(Venue).filter(Venue.city ==r.city, Venue.state==r.state).all()
-    ln = len(vns1)
     dict1 = {"city":r.city,
               "state":r.state,
               "venues": [{
                 "id": r.id,
                 "name": r.name,
-                "num_upcoming_shows": ln,
+                "num_upcoming_shows": len(db.session.query(Venue).join(Shows, Shows.venue_id == Venue.id).filter(Shows.venue_id==r.id).all()),
               }]
              }
     ls.append(dict1)
@@ -164,27 +111,28 @@ def search_venues():
   # TODO: implement search on venues with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
+  vnls ={}
   res = {}
+  data=[]
   try:
-    vn = db.session.query(Venue).filter(Venue.name == request.form.get('search_term', '')).all()
-    cnt = 1
-  
+    vn = db.session.query(Venue).all()
     error = False
+    
     for v in vn:
-        vnls={}
-        vnls.add({ "count": cnt,
-                    "data": [{
+        #print("My v",v.name)
+        data.append({
                       "id": v.id,
                       "name": v.name,
-                      "num_upcoming_shows": len(vn),
-                  }]
-      })
-        res.add(vnls)
+                      "num_upcoming_shows": len(db.session.query(Shows).join(Venue).filter(Shows.venue_id==v.id).filter(Shows.start_time > datetime.now()).all()),
+         })
+    
+    vnls.update({"count": len(vn),'data':data})
+    #print(vnls)
   except:
      flash('Venue with title " ' + request.form['search_term'] + '" does not exit!')
   finally:
     db.session.close()
-  return render_template('pages/search_venues.html', results=res, search_term=request.form.get('search_term', ''))
+  return render_template('pages/search_venues.html', results=vnls, search_term=request.form.get('search_term', ''))
 
 def get_artist_show(artist_data):
    arr = []
@@ -205,24 +153,23 @@ def show_venue(venue_id):
     shws =  db.session.query(Shows).join(Venue, Venue.id == Shows.venue_id).filter(Shows.venue_id == venue_id).all()
     #shws = db.session.query(Venue).filter(Venue.id==venue_id).join(Shows, Shows.venue_id==Venue.id).all()
     shows_count = len(shws)
+    past_shows = db.session.query(Shows).join(Venue).filter(Shows.venue_id==venue_id).filter(Shows.start_time < datetime.now()).all()
+    upcoming_shows = db.session.query(Shows).join(Venue).filter(Shows.venue_id==venue_id).filter(Shows.start_time > datetime.now()).all()
     
-    upcoming_shows =[]
+    """ upcoming_shows =[]
     past_shows=[]
     artst = []
     myDate = datetime.now()
     for shw in shws:
         #print(shw)
         dtt = shw.start_time.strftime("%m/%d/%Y")
-       
         artst.append(shw.artist_id)
-   
-       
         if( datetime.strptime(dtt,"%m/%d/%Y") > myDate ):
            upcoming_shows.append(shw) 
         else:
            past_shows.append(shw)
            
- 
+  """
 
        
     ls = []
@@ -369,8 +316,10 @@ def show_artist(artist_id):
     oneArtists = db.session.query(Artist).filter(Artist.id==artist_id).all()
     
     shws =  db.session.query(Shows).join(Artist, Artist.id == Shows.artist_id).filter(Shows.artist_id == artist_id).all()
+    past_shows = db.session.query(Shows).join(Venue).filter(Shows.artist_id==artist_id).filter(Shows.start_time < datetime.now()).all()
+    upcoming_shows = db.session.query(Shows).join(Venue).filter(Shows.artist_id==artist_id).filter(Shows.start_time > datetime.now()).all()
     ls = []
-    upcoming_shows =[]
+    """ upcoming_shows =[]
     past_shows=[]
     artst = []
     myDate = datetime.now()
@@ -381,7 +330,7 @@ def show_artist(artist_id):
         if( datetime.strptime(dtt,"%m/%d/%Y") > myDate ):
            upcoming_shows.append(shw) 
         else:
-           past_shows.append(shw)
+           past_shows.append(shw) """
           
     for oneArtist in oneArtists:
        dt={
@@ -462,11 +411,11 @@ def edit_artist_submission(artist_id):
   except:
     error = True
     db.session.rollback()
-    print(sys.exc_info())
+    flash('Venue' + request.form['name'] + ' was not updated!')
   finally:
         db.session.close()
   if error:
-     print(error)
+      print(error)
 
   return redirect(url_for('show_artist', artist_id=artist_id))
 

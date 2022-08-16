@@ -133,7 +133,6 @@ def search_venues():
   finally:
     db.session.close()
   return render_template('pages/search_venues.html', results=vnls, search_term=request.form.get('search_term', ''))
-
 def get_artist_show(artist_data):
    arr = []
     
@@ -286,29 +285,26 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  res = {}
-  try:
-    vn = db.session.query(Artist).filter(Artist.name ==request.form.get('search_term', '')).all()
-    cnt = 1
-  
-    error = False
-    for v in vn:
-        vnls={}
-        vnls.add({ "count": cnt,
-                    "data": [{
-                      "id": v.id,
-                      "name": v.name,
-                      "num_upcoming_shows": len(vn),
-                  }]
-      })
-        res.add(vnls)
-  except:
-     flash('Artist with a name " ' + request.form['search_term'] + '" does not exit!')
-
-  finally:
+   artls ={}
+   data =[]
+   try:
+      art = db.session.query(Artist).all()
+      error = False
+      for a in art:
+          data.append({
+                        "id": a.id,
+                        "name": a.name,
+                        "num_upcoming_shows": len(db.session.query(Shows).join(Artist).filter(Shows.artis_id==a.id).filter(Shows.start_time > datetime.now()).all())})
+      
+      artls.update({"count": len(art),'data':data})
+   except:
+      error = True
+      flash('Artist with a name " ' + request.form['search_term'] + '" does not exit!')
+   finally:
     db.session.close()
-  return render_template('pages/search_artists.html', results=res, search_term=request.form.get('search_term', ''))
-
+   if error:
+     print(error)
+   return render_template('pages/search_artists.html', results=artls, search_term=request.form.get('search_term', ''))
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
